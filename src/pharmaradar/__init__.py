@@ -9,4 +9,11 @@ from pharmaradar.pharmacy_info import PharmacyInfo
 from pharmaradar.service.medicine_watchdog import MedicineWatchdog
 from pharmaradar.database.database_interface import MedicineDatabaseInterface
 
-__all__ = ["AvailabilityLevel", "Medicine", "PharmacyInfo", "MedicineFinder", "MedicineWatchdog", "MedicineDatabaseInterface"]
+__all__ = [
+    "AvailabilityLevel",
+    "Medicine",
+    "PharmacyInfo",
+    "MedicineFinder",
+    "MedicineWatchdog",
+    "MedicineDatabaseInterface",
+]

@@ -17,9 +17,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from pharmaradar.location_selector import LocationSelector
 from pharmaradar.medicine import Medicine
 from pharmaradar.pharmacy_info import PharmacyInfo
-from pharmaradar.scraping_utils import (PageNavigator,
-                                        PharmacyDuplicateDetector,
-                                        PharmacyExtractor, PharmacyFilter)
+from pharmaradar.scraping_utils import PageNavigator, PharmacyDuplicateDetector, PharmacyExtractor, PharmacyFilter
 from pharmaradar.text_parsers import MedicineNameMatcher, PharmacyTextParser
 from pharmaradar.webdriver_utils import WebDriverManager
 

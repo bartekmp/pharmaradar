@@ -141,7 +141,7 @@ jobs:
         
         # Run semantic release to bump version if needed
         echo "🔄 Running semantic release..."
-        if semantic-release version --dry-run; then
+        if semantic-release --noop version; then
           echo "📦 Changes detected, proceeding with version bump"
           semantic-release version
         else

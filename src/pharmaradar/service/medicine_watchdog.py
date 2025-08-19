@@ -7,10 +7,10 @@ import datetime
 import logging
 from typing import List, Optional
 
-from pharmaradar.pharmacy_info import PharmacyInfo
 from pharmaradar.database.database_interface import MedicineDatabaseInterface
 from pharmaradar.medicine import Medicine
 from pharmaradar.medicine_scraper import MedicineFinder
+from pharmaradar.pharmacy_info import PharmacyInfo
 
 
 class MedicineWatchdog:

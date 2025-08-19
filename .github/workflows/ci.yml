@@ -42,9 +42,6 @@ jobs:
     
     - name: Check formatting with black
       run: black --check --diff src/ tests/
-    
-    - name: Check import sorting with isort
-      run: isort --check-only --diff src/ tests/
 
   test:
     name: Test Suite

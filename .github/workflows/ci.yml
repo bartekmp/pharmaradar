@@ -28,7 +28,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.12"
+        python-version: "3.13"
     
     - name: Install dependencies
       run: |
@@ -96,12 +96,12 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Full history for semantic versioning
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.TOKEN }}
     
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.12"
+        python-version: "3.13"
     
     - name: Install build dependencies
       run: |
@@ -116,7 +116,7 @@ jobs:
     - name: Run semantic release
       id: semantic
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.TOKEN }}
       run: |
         # Check if there are changes that warrant a new version
         echo "🔍 Analyzing commits for version bump..."
@@ -144,7 +144,7 @@ jobs:
     - name: Create GitHub Release
       if: steps.semantic.outputs.version-changed == 'true'
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.TOKEN }}
       run: |
         NEW_VERSION="${{ steps.semantic.outputs.new-version }}"
         echo "🚀 Creating GitHub release for version $NEW_VERSION"

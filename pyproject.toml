@@ -1,0 +1,64 @@
+[project]
+name = "Pharmaradar"
+version = "0.1.0"
+description = "Python scraping package for KtoMaLek.pl website to monitor drug availability."
+authors = [{ name = "bartekmp" }]
+license = "MIT"
+readme = "README.md"
+keywords = ["ktomalek", "pharmaradar", "web scraping", "selenium"]
+requires-python = ">=3.12"
+dependencies = [
+    "selenium>=4.15.0",
+    "lxml>=5.0.0",
+]
+optional-dependencies = { dev = [
+    "pytest==8.4.1",
+    "pytest-mock==3.14.1",
+    "black==25.1.0",
+    "flake8==7.3.0", 
+    "isort==6.0.1",
+    "python-semantic-release==10.2.0",
+    "build",
+    "twine",
+] }
+
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 120
+preview = true
+include = "\\.py$"
+target-version = ["py312"]
+exclude = "(\\.git|\\.hg|\\.mypy_cache|\\.tox|\\.venv|_build|buck-out|build|dist|node_modules|venv|__pycache__)"
+
+[tool.pytest.ini_options]
+addopts = "--ignore=feature_tests"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.semantic_release]
+branch = "main"
+changelog_file = ""
+commit_parser = "conventional"
+tag_format = "v{version}"
+version_toml = ["pyproject.toml:project.version"]
+
+[tool.semantic_release.commit_parser_options]
+minor_tags = ["feat", "feature"]
+patch_tags = ["fix", "bugfix", "improvement", "enhancement"]
+allowed_tags = [
+    "feat",
+    "feature",
+    "fix",
+    "bugfix",
+    "improvement",
+    "enhancement",
+]
+default_bump_level = 0
+parse_squash_commits = true
+ignore_merge_commits = true

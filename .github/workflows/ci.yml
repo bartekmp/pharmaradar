@@ -1,0 +1,196 @@
+# CI/CD Pipeline with Semantic Versioning
+#
+# The pipeline:
+# 1. Runs code quality checks (linting, formatting)
+# 2. Runs unit tests
+# 3. Analyzes commits and bumps version if needed (main branch only)
+# 4. Builds package
+# 5. Creates GitHub release (if version changed)
+# 6. Publishes to PyPI (if version changed and in release environment)
+
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Lint with flake8
+      run: |
+        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+    
+    - name: Check formatting with black
+      run: black --check --diff src/ tests/
+    
+    - name: Check import sorting with isort
+      run: isort --check-only --diff src/ tests/
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: quality
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Run tests
+      run: |
+        pytest tests/ --verbose --tb=short --junitxml=test-results.xml
+      env:
+        DISPLAY: :99
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.python-version }}
+        path: test-results.xml
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    outputs:
+      version-changed: ${{ steps.semantic.outputs.version-changed }}
+      old-version: ${{ steps.semantic.outputs.old-version }}
+      new-version: ${{ steps.semantic.outputs.new-version }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for semantic versioning
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine python-semantic-release
+    
+    - name: Configure git for semantic release
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Run semantic release
+      id: semantic
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Check if there are changes that warrant a new version
+        echo "🔍 Analyzing commits for version bump..."
+        
+        # Get current version before semantic release
+        OLD_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "old-version=$OLD_VERSION" >> $GITHUB_OUTPUT
+        
+        # Run semantic release to bump version if needed
+        semantic-release version
+        
+        # Get new version after semantic release
+        NEW_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "new-version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        
+        # Check if version changed
+        if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
+          echo "version-changed=true" >> $GITHUB_OUTPUT
+          echo "✅ Version bumped from $OLD_VERSION to $NEW_VERSION"
+        else
+          echo "version-changed=false" >> $GITHUB_OUTPUT
+          echo "ℹ️ No version change needed (current: $NEW_VERSION)"
+        fi
+    
+    - name: Create GitHub Release
+      if: steps.semantic.outputs.version-changed == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        NEW_VERSION="${{ steps.semantic.outputs.new-version }}"
+        echo "🚀 Creating GitHub release for version $NEW_VERSION"
+        
+        # Create a git tag if it doesn't exist
+        git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION" || echo "Tag already exists"
+        git push origin "v$NEW_VERSION" || echo "Tag already pushed"
+        
+        # Create GitHub release
+        gh release create "v$NEW_VERSION" \
+          --title "Release v$NEW_VERSION" \
+          --generate-notes \
+          --latest
+    
+    - name: Build package
+      run: python -m build
+    
+    - name: Check package
+      run: twine check dist/*
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/
+        retention-days: 90
+
+  # publish:
+  #   name: Publish to PyPI
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.version-changed == 'true'
+  #   environment: release
+    
+  #   steps:
+  #   - name: Download build artifacts
+  #     uses: actions/download-artifact@v3
+  #     with:
+  #       name: dist
+  #       path: dist/
+    
+  #   - name: Publish to PyPI
+  #     uses: pypa/gh-action-pypi-publish@release/v1
+  #     with:
+  #       password: ${{ secrets.PYPI_API_TOKEN }}
+  #       skip-existing: true  # Skip if version already exists

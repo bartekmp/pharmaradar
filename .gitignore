@@ -1,0 +1,15 @@
+log/
+build/
+dist/
+*.egg-info/
+__pycache__
+*.pyc
+.pytest_cache
+.vscode
+.env
+.env.local
+.venv
+
+# Jenkins artifacts
+test-results.xml
+*.log

@@ -1,5 +1,10 @@
 # CI/CD Pipeline with Semantic Versioning
 #
+# This workflow automatically versions and publishes the package based on conventional commits:
+# - feat: adds new features → minor version bump (0.1.0 → 0.2.0)
+# - fix: bug fixes → patch version bump (0.1.0 → 0.1.1)  
+# - BREAKING CHANGE: in commit body → major version bump (0.1.0 → 1.0.0)
+#
 # The pipeline:
 # 1. Runs code quality checks (linting, formatting)
 # 2. Runs unit tests
@@ -7,13 +12,16 @@
 # 4. Builds package
 # 5. Creates GitHub release (if version changed)
 # 6. Publishes to PyPI (if version changed and in release environment)
+#
+# Note: Workflow skips execution for semantic-release automated commits to prevent infinite loops
 
 name: CI/CD
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
+    # Don't run on tags created by semantic-release
+    tags-ignore: [ 'v*' ]
   pull_request:
     branches: [ main ]
 
@@ -21,6 +29,8 @@ jobs:
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    # Skip if this is a semantic-release commit
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
     
     steps:
     - uses: actions/checkout@v4
@@ -47,6 +57,8 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     needs: quality
+    # Skip if this is a semantic-release commit
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
     strategy:
       matrix:
         python-version: ["3.13"]
@@ -86,7 +98,8 @@ jobs:
     name: Build Package
     runs-on: ubuntu-latest
     needs: [quality, test]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    # Skip if this is a semantic-release commit, and only run on main branch pushes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, '[skip ci]')
     outputs:
       version-changed: ${{ steps.semantic.outputs.version-changed }}
       old-version: ${{ steps.semantic.outputs.old-version }}
@@ -124,9 +137,16 @@ jobs:
         # Get current version before semantic release
         OLD_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
         echo "old-version=$OLD_VERSION" >> $GITHUB_OUTPUT
+        echo "📋 Current version: $OLD_VERSION"
         
         # Run semantic release to bump version if needed
-        semantic-release version
+        echo "🔄 Running semantic release..."
+        if semantic-release version --dry-run; then
+          echo "📦 Changes detected, proceeding with version bump"
+          semantic-release version
+        else
+          echo "ℹ️ No significant changes found, keeping current version"
+        fi
         
         # Get new version after semantic release
         NEW_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
@@ -147,17 +167,27 @@ jobs:
         GH_TOKEN: ${{ secrets.TOKEN }}
       run: |
         NEW_VERSION="${{ steps.semantic.outputs.new-version }}"
-        echo "🚀 Creating GitHub release for version $NEW_VERSION"
+        echo "🚀 Preparing GitHub release for version $NEW_VERSION"
         
         # Create a git tag if it doesn't exist
-        git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION" || echo "Tag already exists"
-        git push origin "v$NEW_VERSION" || echo "Tag already pushed"
+        if git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION" 2>/dev/null; then
+          echo "✅ Created tag v$NEW_VERSION"
+          git push origin "v$NEW_VERSION" || echo "Tag already pushed"
+        else
+          echo "ℹ️ Tag v$NEW_VERSION already exists"
+        fi
         
-        # Create GitHub release
-        gh release create "v$NEW_VERSION" \
-          --title "Release v$NEW_VERSION" \
-          --generate-notes \
-          --latest
+        # Check if release already exists
+        if gh release view "v$NEW_VERSION" >/dev/null 2>&1; then
+          echo "ℹ️ Release v$NEW_VERSION already exists, skipping creation"
+        else
+          echo "📝 Creating GitHub release for v$NEW_VERSION"
+          gh release create "v$NEW_VERSION" \
+            --title "Release v$NEW_VERSION" \
+            --generate-notes \
+            --latest
+          echo "✅ GitHub release created successfully"
+        fi
     
     - name: Build package
       run: python -m build
@@ -165,6 +195,15 @@ jobs:
     - name: Check package
       run: twine check dist/*
     
+    - name: Summary
+      run: |
+        echo "📊 Build Summary:"
+        echo "Old version: ${{ steps.semantic.outputs.old-version }}"
+        echo "New version: ${{ steps.semantic.outputs.new-version }}"
+        echo "Version changed: ${{ steps.semantic.outputs.version-changed }}"
+        echo "Build artifacts:"
+        ls -la dist/
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:

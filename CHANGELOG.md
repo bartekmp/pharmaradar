@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.2 (2025-08-20)
+
+### Enhancement
+
+- Update readme, remove unused file
+  ([`23f66fc`](https://github.com/bartekmp/pharmaradar/commit/23f66fcd73f83f3645962eb39279e18a92f7649f))
+
+
 ## v1.0.1 (2025-08-19)
 
 ### Bug Fixes

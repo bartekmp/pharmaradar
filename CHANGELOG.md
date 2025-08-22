@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2025-08-22)
+
+### Feature
+
+- Add selective fields update method
+  ([`55fe226`](https://github.com/bartekmp/pharmaradar/commit/55fe226d4aef26ecd6e9efe7d6231c32ff3c4fa2))
+
+
 ## v1.0.2 (2025-08-20)
 
 ### Enhancement

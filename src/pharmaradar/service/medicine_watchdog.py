@@ -206,6 +206,62 @@ class MedicineWatchdog:
             self.log.error(f"Error updating medicine {medicine.full_name}: {str(e)}")
             return False
 
+    def update_medicine_fields(self, medicine_id: int, **kwargs) -> bool:
+        """Update specific fields of a medicine by ID.
+
+        Args:
+            medicine_id: ID of the medicine to update
+            **kwargs: Fields to update (name, dosage, amount, location, radius_km,
+                    max_price, min_availability, title, last_search_at, active)
+
+        Returns:
+            bool: True if update was successful, False otherwise
+        """
+        try:
+            if not medicine_id:
+                self.log.error("Cannot update medicine without ID")
+                return False
+
+            # Filter out None values and unsupported parameters
+            valid_params = {}
+            supported_fields = {
+                "name",
+                "dosage",
+                "amount",
+                "location",
+                "radius_km",
+                "max_price",
+                "min_availability",
+                "title",
+                "last_search_at",
+                "active",
+            }
+
+            for key, value in kwargs.items():
+                if key in supported_fields and value is not None:
+                    # Handle special case for min_availability if it's an AvailabilityLevel enum
+                    if key == "min_availability" and hasattr(value, "value"):
+                        valid_params[key] = value.value
+                    else:
+                        valid_params[key] = value
+
+            if not valid_params:
+                self.log.warning(f"No valid parameters provided for updating medicine {medicine_id}")
+                return False
+
+            # Call the db_client update_medicine with individual parameters
+            success = self.db_client.update_medicine(medicine_id, **valid_params)
+
+            if success:
+                self.log.info(f"Updated medicine ID {medicine_id} with parameters: {valid_params}")
+            else:
+                self.log.warning(f"Failed to update medicine ID {medicine_id}")
+
+            return bool(success)
+        except Exception as e:
+            self.log.error(f"Error updating medicine ID {medicine_id}: {str(e)}")
+            return False
+
     def remove_medicine(self, medicine_id: Optional[int]) -> bool:
         """Remove a medicine from the database."""
         if medicine_id is None:

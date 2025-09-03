@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.1 (2025-09-03)
+
+### Enhancement
+
+- Freeze build and twine packages
+  ([`f8c01af`](https://github.com/bartekmp/pharmaradar/commit/f8c01afffd2be7064cb366635d7bc80d3bdd7419))
+
+
 ## v1.1.0 (2025-08-22)
 
 ### Feature

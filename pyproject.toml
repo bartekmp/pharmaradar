@@ -1,6 +1,6 @@
 [project]
 name = "pharmaradar"
-version = "1.1.1"
+version = "1.1.2"
 description = "Python scraping package for KtoMaLek.pl website to monitor drug availability."
 authors = [{ name = "bartekmp" }]
 license = "MIT"

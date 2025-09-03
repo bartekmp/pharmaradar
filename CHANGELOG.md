@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.2 (2025-09-03)
+
+### Enhancement
+
+- Add badges, add autopublish action
+  ([`042ca5a`](https://github.com/bartekmp/pharmaradar/commit/042ca5af9b74b2252acff66084c9d0987030974f))
+
+
 ## v1.1.1 (2025-09-03)
 
 ### Enhancement

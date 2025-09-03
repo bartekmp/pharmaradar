@@ -2,6 +2,8 @@
 
 [![Unit Tests](https://github.com/bartekmp/pharmaradar/actions/workflows/test.yml/badge.svg)](https://github.com/bartekmp/pharmaradar/actions/workflows/test.yml)
 [![CI/CD](https://github.com/bartekmp/pharmaradar/actions/workflows/ci.yml/badge.svg)](https://github.com/bartekmp/pharmaradar/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/pharmaradar.svg)](https://pypi.org/project/pharmaradar/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Python package for searching and managing pharmacy medicine availability from [KtoMaLek.pl](https://ktomalek.pl).
 

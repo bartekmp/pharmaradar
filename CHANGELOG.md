@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2025-11-27)
+
+### Feature
+
+- Add renovate configuration
+  ([`827900c`](https://github.com/bartekmp/pharmaradar/commit/827900cb0729eb6236ead1bcd4dfeb0da19c0a42))
+
+
 ## v1.1.2 (2025-09-03)
 
 ### Enhancement

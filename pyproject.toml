@@ -12,7 +12,7 @@ dependencies = [
     "lxml>=5.0.0",
 ]
 optional-dependencies = { dev = [
-    "pytest==9.0.1",
+    "pytest==9.0.2",
     "pytest-mock==3.15.1",
     "black==25.11.0",
     "flake8==7.3.0", 

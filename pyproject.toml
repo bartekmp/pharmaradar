@@ -51,7 +51,7 @@ commit_message = "{version} [skip ci]"
 
 [tool.semantic_release.commit_parser_options]
 minor_tags = ["feat", "feature"]
-patch_tags = ["fix", "bugfix", "improvement", "enhancement"]
+patch_tags = ["fix", "bugfix", "improvement", "enhancement", "chore"]
 allowed_tags = [
     "feat",
     "feature",
@@ -59,6 +59,7 @@ allowed_tags = [
     "bugfix",
     "improvement",
     "enhancement",
+    "chore",
 ]
 default_bump_level = 0
 parse_squash_commits = true

@@ -2,6 +2,28 @@
 
 <!-- version list -->
 
+## v1.2.1 (2025-12-15)
+
+### Chores
+
+- **deps**: Update dependency black to v25.12.0
+  ([`5ea2be7`](https://github.com/bartekmp/pharmaradar/commit/5ea2be7d5266d0b64df3fa54c817b31b2477baab))
+
+- **deps**: Update dependency pytest to v9.0.2
+  ([`4cb451b`](https://github.com/bartekmp/pharmaradar/commit/4cb451b85745e6e7d276487be2345f87687f3137))
+
+- **deps**: Update dependency python to 3.14
+  ([`382a443`](https://github.com/bartekmp/pharmaradar/commit/382a44399e81162801b9be260db56dae96a9d4d3))
+
+### Enhancement
+
+- Add 'chore' to patch_tags in pyproject.toml
+  ([`b7a2282`](https://github.com/bartekmp/pharmaradar/commit/b7a2282a128eaec2cf8acf8fa016a72a5c602f3c))
+
+- Bump version from 1.2.0 to 1.2.1
+  ([`63a8eaf`](https://github.com/bartekmp/pharmaradar/commit/63a8eaf6027ab1e7ef29475e1c5f4c9f198853ca))
+
+
 ## v1.2.0 (2025-11-27)
 
 ### Feature

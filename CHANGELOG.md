@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.2.2 (2025-12-30)
+
+### Chores
+
+- **deps**: Update actions/cache action to v5
+  ([`729de25`](https://github.com/bartekmp/pharmaradar/commit/729de25632c532a7371b50dd11f89f90607898cc))
+
+- **deps**: Update dependency python-semantic-release to v10.5.3
+  ([`4b104be`](https://github.com/bartekmp/pharmaradar/commit/4b104bef8315b96ab515dbd9fbc83c2a405c7393))
+
+
 ## v1.2.1 (2025-12-15)
 
 ### Chores

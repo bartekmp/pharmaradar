@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.2.3 (2026-03-07)
+
+### Bug Fixes
+
+- **deps**: Update dependency build to v1.4.0
+  ([`ec23b4c`](https://github.com/bartekmp/pharmaradar/commit/ec23b4ccba65915cc7629290a36cd74d04e4760e))
+
+- **deps**: Update python dependencies
+  ([`e8bbc8d`](https://github.com/bartekmp/pharmaradar/commit/e8bbc8d4e38af6914d1b2f6af8e472a84fab9fae))
+
+### Chores
+
+- **deps**: Update github artifact actions
+  ([`b021a13`](https://github.com/bartekmp/pharmaradar/commit/b021a13a426a996814cb0fe74d5d709289e26fc1))
+
+
 ## v1.2.2 (2025-12-30)
 
 ### Chores

@@ -10,6 +10,17 @@ Python package for searching and managing pharmacy medicine availability from [K
 ## Requirements
 Pharmaradar requires `chromium-browser`, `chromium-chromedriver` and `xvfb` to run, as the prerequisites for Selenium used to scrape the data from the KtoMaLek.pl page, as they do not provide an open API to get the data easily.
 
+## Configuration
+
+Pharmaradar can be tuned via the following environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PHARMARADAR_CHROME_PROFILE_DIR` | `/tmp/pharmaradar-chrome-profile` | Path to the Chrome user-data directory reused across sessions. Using a fixed path prevents Chrome from creating a new temporary profile directory (~100–500 MB) on every search invocation, which would otherwise cause significant disk write accumulation in long-running processes. Change this to a `tmpfs`-backed path (e.g. inside `/dev/shm`) to keep it entirely in RAM. |
+| `CHROMEDRIVER_PATH` | `/usr/bin/chromedriver` | Path to the ChromeDriver binary. |
+| `CHROME_BIN` | auto-detected | Path to the Chrome/Chromium binary. Auto-detected for Alpine Linux (`/usr/bin/chromium-browser`) and other common paths if not set. |
+| `DISPLAY` | `:99` | X display to use for the virtual framebuffer (Xvfb). Relevant in containerised environments only. |
+
 ## Installation
 
 ```bash

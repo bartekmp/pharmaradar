@@ -411,3 +411,57 @@ Zamknięta, zapraszamy jutro (08:00 – 20:00)"""
         assert len(result) == 10
         assert result[0].distance_km == 0.5
         assert result[-1].distance_km == 5.0  # 10th pharmacy
+
+
+class TestChromeUserDataDir:
+    """Tests verifying Chrome is configured to use a fixed user-data-dir directory.
+
+    Without --user-data-dir, Chrome creates a new randomly-named temp directory
+    (~100-500 MB) on each invocation that never gets cleaned up, causing multi-GB
+    disk writes in long-running daemon processes.
+    """
+
+    def test_chrome_options_has_user_data_dir(self):
+        """Chrome options must include a fixed --user-data-dir argument."""
+        from pharmaradar.webdriver_utils import CHROME_USER_DATA_DIR, WebDriverUtils
+
+        options = WebDriverUtils.get_chrome_options(headless=True)
+        user_data_args = [a for a in options.arguments if a.startswith("--user-data-dir=")]
+
+        assert len(user_data_args) == 1, "Exactly one --user-data-dir argument must be present"
+        assert user_data_args[0] == f"--user-data-dir={CHROME_USER_DATA_DIR}"
+
+    def test_chrome_options_no_incognito(self):
+        """--incognito must not be present as it conflicts with --user-data-dir."""
+        from pharmaradar.webdriver_utils import WebDriverUtils
+
+        options = WebDriverUtils.get_chrome_options(headless=True)
+        assert "--incognito" not in options.arguments, "--incognito is incompatible with --user-data-dir"
+
+    def test_cleanup_removes_crash_subdirs_not_profile_dir(self, tmp_path):
+        """cleanup_hanging_processes must remove crash/lock subdirs but keep the profile dir.
+
+        The profile dir must NOT be fully deleted between sessions — doing so causes Chrome
+        to crash when a new session starts immediately after (back-to-back calls like
+        test_connection() followed by search_medicine()).
+        """
+        import os
+
+        from pharmaradar.webdriver_utils import WebDriverUtils
+
+        fake_profile_dir = str(tmp_path / "pharmaradar-chrome-profile")
+        crash_dir = os.path.join(fake_profile_dir, "Crashpad")
+        lock_file = os.path.join(fake_profile_dir, "SingletonLock")
+        os.makedirs(crash_dir)
+        open(lock_file, "w").close()
+
+        with (
+            patch("pharmaradar.webdriver_utils.subprocess.run"),
+            patch("pharmaradar.webdriver_utils.time.sleep"),
+            patch("pharmaradar.webdriver_utils.CHROME_USER_DATA_DIR", fake_profile_dir),
+        ):
+            WebDriverUtils.cleanup_hanging_processes()
+
+        assert os.path.exists(fake_profile_dir), "Profile dir itself must NOT be deleted"
+        assert not os.path.exists(crash_dir), "Crashpad subdir must be deleted"
+        assert not os.path.exists(lock_file), "SingletonLock must be deleted"

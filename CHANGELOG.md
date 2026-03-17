@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.4 (2026-03-17)
+
+### Bug Fixes
+
+- **deps**: Update python dependencies
+  ([`465ab13`](https://github.com/bartekmp/pharmaradar/commit/465ab1334eac1d9a870f11262cc6b9b1be99700c))
+
+
 ## v1.2.3 (2026-03-07)
 
 ### Bug Fixes

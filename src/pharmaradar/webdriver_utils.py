@@ -22,6 +22,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 T = TypeVar("T")
 
+# Fixed Chrome profile directory reused across sessions to prevent profile accumulation.
+# Override with PHARMARADAR_CHROME_PROFILE_DIR env var if needed.
+CHROME_USER_DATA_DIR = os.environ.get("PHARMARADAR_CHROME_PROFILE_DIR", "/tmp/pharmaradar-chrome-profile")
+
 
 class WebDriverManager:
     """Manages WebDriver instances with proper cleanup and configuration."""
@@ -113,8 +117,7 @@ class WebDriverUtils:
             subprocess.run(["pkill", "-f", "chromium"], stderr=subprocess.DEVNULL, check=False)
             subprocess.run(["pkill", "-f", "Xvfb"], stderr=subprocess.DEVNULL, check=False)
 
-            # Clean up temporary Chrome data directories
-
+            # Clean up temporary Chrome data directories (pre-fix orphaned dirs)
             temp_dirs = [
                 "/tmp/chrome-user-data",
                 "/tmp/chrome-data",
@@ -128,6 +131,19 @@ class WebDriverUtils:
                 try:
                     if os.path.exists(temp_dir):
                         shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+            # Clean crash/lock state inside the fixed profile dir without wiping the whole dir.
+            # Deleting the entire profile dir causes Chrome to crash when a new session starts
+            # immediately after cleanup (common in back-to-back test_connection / search_medicine).
+            for subdir in ["Crashpad", "SingletonLock", "SingletonCookie", "SingletonSocket"]:
+                path = os.path.join(CHROME_USER_DATA_DIR, subdir)
+                try:
+                    if os.path.isdir(path):
+                        shutil.rmtree(path, ignore_errors=True)
+                    elif os.path.exists(path):
+                        os.remove(path)
                 except Exception:
                     pass
 
@@ -227,13 +243,11 @@ class WebDriverUtils:
             "--disable-features=OptimizationHints",
             "--disable-search-engine-choice-screen",
             "--disable-cloud-management-enrollment",
-            # Try to avoid file system writes entirely
+            f"--user-data-dir={CHROME_USER_DATA_DIR}",
             "--disable-local-storage",
             "--disable-databases",
             "--disable-shared-workers",
             "--disable-file-system",
-            "--incognito",
-            # Don't specify user-data-dir - let Chrome use default temp location
         ]
 
         for arg in essential_args:

@@ -10,37 +10,59 @@
     ":disableDependencyDashboard",
     "schedule:weekly"
   ],
-
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "timezone": "Europe/Warsaw",
+  "minimumReleaseAge": "7 days",
   "rangeStrategy": "replace",
   "prConcurrentLimit": 5,
   "prCreation": "not-pending",
-
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "enabledManagers": [
+    "poetry",
+    "github-actions"
+  ],
   "packageRules": [
     {
-      "matchManagers": ["github-actions"],
-      "enabled": true
+      "matchManagers": [
+        "github-actions"
+      ],
+      "enabled": true,
+      "commitMessagePrefix": "ci:"
     },
     {
-      "matchManagers": ["poetry"],
+      "matchManagers": [
+        "poetry"
+      ],
       "groupName": "Python dependencies",
-      "labels": ["python"],
-      "schedule": ["every weekend"]
+      "labels": [
+        "python"
+      ],
+      "schedule": [
+        "every weekend"
+      ]
     },
     {
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "automerge": true,
-      "automergeType": "branch",
+      "automergeType": "pr",
       "platformAutomerge": true
     },
     {
-      "matchUpdateTypes": ["major"],
-      "labels": ["major update"],
-      "prPriority": -1,
-      "automerge": false
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "labels": [
+        "major update"
+      ],
+      "prPriority": 10,
+      "automerge": false,
+      "commitMessagePrefix": "feat!:"
     }
-  ],
-
-  "enabledManagers": ["poetry", "github-actions"]
+  ]
 }

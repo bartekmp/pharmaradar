@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.6 (2026-03-17)
+
+### Enhancement
+
+- Renovate config
+  ([`1824923`](https://github.com/bartekmp/pharmaradar/commit/1824923cb04a1debee031cc8f62b435da94a8b67))
+
+
 ## v1.2.5 (2026-03-17)
 
 ### Bug Fixes

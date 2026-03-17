@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.5 (2026-03-17)
+
+### Bug Fixes
+
+- Use fixed chrome profile path instead of randomly created temps
+  ([`05316e6`](https://github.com/bartekmp/pharmaradar/commit/05316e69a450e0f24f0b50333db2791e1834aef3))
+
+
 ## v1.2.4 (2026-03-17)
 
 ### Bug Fixes

@@ -34,7 +34,7 @@ class PharmacyInfo:
             # Create a clickable Google Maps link for the address
             encoded_address = quote_plus(self.address)
             google_maps_url = f"https://www.google.com/maps/search/?api=1&query={encoded_address}"
-            result += f"📍 <a href='{google_maps_url}'>{self.address}</a>\n"
+            result += f'📍 <a href="{google_maps_url}">{self.address}</a>\n'
         else:
             result += "📍 Address not available\n"
 
@@ -54,7 +54,7 @@ class PharmacyInfo:
             result += f"🚗 {self.distance_km:.1f} km\n"
 
         if self.reservation_url:
-            result += f"🔗 <a href='https://ktomalek.pl{self.reservation_url}'>Zarezerwuj</a>\n"
+            result += f'🔗 <a href="https://ktomalek.pl{self.reservation_url}">Zarezerwuj</a>\n'
 
         if self.additional_info:
             result += f"ℹ️ {self.additional_info}\n"

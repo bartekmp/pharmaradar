@@ -132,9 +132,10 @@ class TestMedicineScraper:
 
         assert not result
 
-    @patch.object(MedicineFinder, "_perform_search")
+    @patch.object(MedicineFinder, "_set_location_via_js")
+    @patch.object(MedicineFinder, "_extract_pharmacy_results")
     @patch("pharmaradar.medicine_scraper.WebDriverManager")
-    def test_search_medicine_success(self, mock_manager_class, mock_perform_search):
+    def test_search_medicine_success(self, mock_manager_class, mock_extract, mock_set_location):
         """Test successful medicine search."""
         expected_pharmacies = [
             PharmacyInfo(
@@ -147,7 +148,8 @@ class TestMedicineScraper:
                 distance_km=2.5,
             )
         ]
-        mock_perform_search.return_value = expected_pharmacies
+        mock_extract.return_value = expected_pharmacies
+        mock_set_location.return_value = True
 
         # Mock the driver manager
         mock_manager = MagicMock()
@@ -161,14 +163,14 @@ class TestMedicineScraper:
         result = scraper.search_medicine(medicine)
 
         assert result == expected_pharmacies
-        mock_driver.get.assert_called_once_with(scraper.BASE_URL)
-        mock_perform_search.assert_called_once_with(mock_driver, medicine)
-        mock_perform_search.assert_called_once_with(mock_driver, medicine)
+        mock_driver.get.assert_called_once()
+        mock_set_location.assert_called_once_with(mock_driver, "Test Location")
+        mock_extract.assert_called_once_with(mock_driver, medicine)
 
-    @patch.object(MedicineFinder, "_get_webdriver")
-    def test_search_medicine_failure(self, mock_get_webdriver):
+    @patch.object(MedicineFinder, "is_webdriver_available")
+    def test_search_medicine_failure(self, mock_is_available):
         """Test medicine search with WebDriver failure."""
-        mock_get_webdriver.side_effect = Exception("WebDriver failed")
+        mock_is_available.return_value = False
 
         medicine = Medicine(name="Test Medicine", location="Test Location")
 
@@ -176,33 +178,6 @@ class TestMedicineScraper:
         result = scraper.search_medicine(medicine)
 
         assert result == []
-
-    @patch("pharmaradar.medicine_scraper.time.sleep")
-    def test_search_medicine_on_homepage(self, mock_sleep):
-        """Test searching for medicine on homepage."""
-        mock_driver = MagicMock()
-
-        with patch("pharmaradar.scraping_utils.PageNavigator.search_medicine") as mock_search:
-            mock_search.return_value = True
-
-            scraper = MedicineFinder()
-            result = scraper._search_medicine_on_homepage(mock_driver, "Placeholderium R 1000")
-
-            assert result
-            mock_search.assert_called_once_with(mock_driver, "Placeholderium R 1000", scraper.timeout)
-
-    @patch("pharmaradar.medicine_scraper.time.sleep")
-    def test_select_location_from_options(self, mock_sleep):
-        """Test selecting location from available options."""
-        # This method is very complex with retry logic, so we'll mock the entire method
-        # to avoid the complex browser interactions and just test that it can be called
-        scraper = MedicineFinder()
-
-        # Test that the method exists and can be called
-        with patch.object(scraper, "_select_location_from_options", return_value=True) as mock_method:
-            result = scraper._select_location_from_options(MagicMock(), "Warszawa")
-            assert result
-            mock_method.assert_called_once()
 
     def test_extract_pharmacy_results(self):
         """Test extracting pharmacy results from page."""

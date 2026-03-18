@@ -99,38 +99,48 @@ class MedicineNameMatcher:
             intersection = words1 & words2
             union = words1 | words2
 
-            if not intersection:
-                return 0.0  # No common words = no match
+            word_similarity = 0.0
+            if intersection:
+                word_similarity = len(intersection) / len(union)
 
-            word_similarity = len(intersection) / len(union)
+                # Boost if main medicine name words match (first 1-2 words)
+                main_words1 = set(norm1.split()[:2])
+                main_words2 = set(norm2.split()[:2])
+                main_intersection = main_words1 & main_words2
 
-            # Boost if main medicine name words match (first 1-2 words)
-            main_words1 = set(norm1.split()[:2])
-            main_words2 = set(norm2.split()[:2])
-            main_intersection = main_words1 & main_words2
+                if main_intersection:
+                    # Check if the main words are significant (not just numbers/dosages)
+                    significant_words = [w for w in main_intersection if len(w) >= 3 and not w.isdigit()]
+                    if significant_words:
+                        word_similarity += 0.2
 
-            if main_intersection:
-                # Check if the main words are significant (not just numbers/dosages)
-                significant_words = [w for w in main_intersection if len(w) >= 3 and not w.isdigit()]
-                if significant_words:
-                    word_similarity += 0.2
+            word_similarity = min(word_similarity, 1.0)
+        else:
+            word_similarity = 0.0
 
-            # Penalize if there are conflicting numbers (different dosages)
-            numbers1 = set(re.findall(r"\d+", norm1))
-            numbers2 = set(re.findall(r"\d+", norm2))
-            if numbers1 and numbers2 and not (numbers1 & numbers2):
-                # Different numbers present - likely different dosages
-                word_similarity *= 0.5
+        char_similarity = MedicineNameMatcher._character_similarity(norm1, norm2)
+        base_similarity = max(word_similarity, char_similarity)
 
-            return min(word_similarity, 1.0)
+        # Penalize if primary words are completely different
+        first_word1 = next((w for w in norm1.split() if w.isalpha()), "")
+        first_word2 = next((w for w in norm2.split() if w.isalpha()), "")
+        if first_word1 and first_word2:
+            if MedicineNameMatcher._character_similarity(first_word1, first_word2) < 0.8:
+                base_similarity *= 0.5  # Heavy penalty for different main brand names
 
-        # Levenshtein-like character similarity
-        return MedicineNameMatcher._character_similarity(norm1, norm2)
+        # Penalize if there are conflicting numbers (different dosages)
+        numbers1 = set(re.findall(r"\d+", norm1))
+        numbers2 = set(re.findall(r"\d+", norm2))
+        if numbers1 and numbers2 and not (numbers1 & numbers2):
+            # Different numbers present - likely different dosages
+            base_similarity *= 0.5
+
+        return base_similarity
 
     @staticmethod
     def _character_similarity(s1: str, s2: str) -> float:
         """
-        Calculate character-based similarity (simplified Levenshtein).
+        Calculate character-based similarity using difflib.
         Args:
             s1: First string
             s2: Second string
@@ -140,17 +150,9 @@ class MedicineNameMatcher:
         if len(s1) == 0 or len(s2) == 0:
             return 0.0
 
-        max_len = max(len(s1), len(s2))
-        if max_len == 0:
-            return 1.0
+        import difflib
 
-        # Count matching characters in similar positions
-        matches = 0
-        for i in range(min(len(s1), len(s2))):
-            if s1[i] == s2[i]:
-                matches += 1
-
-        return matches / max_len
+        return difflib.SequenceMatcher(None, s1, s2).ratio()
 
     @staticmethod
     def find_best_match(
@@ -200,31 +202,6 @@ class MedicineNameMatcher:
 
 class PharmacyTextParser:
     """Parser for pharmacy-related text content."""
-
-    # Common Polish city names for address detection
-    POLISH_CITIES = [
-        "gdańsk",
-        "warszawa",
-        "kraków",
-        "wrocław",
-        "poznań",
-        "łódź",
-        "katowice",
-        "bydgoszcz",
-        "lublin",
-        "białystok",
-        "szczecin",
-        "gdynia",
-        "częstochowa",
-        "radom",
-        "sosnowiec",
-        "toruń",
-        "kielce",
-        "olsztyn",
-        "gliwice",
-        "zabrze",
-        "bytom",
-    ]
 
     # Street indicators in Polish
     STREET_INDICATORS = ["ul.", "al.", "pl.", "os."]
@@ -316,9 +293,11 @@ class PharmacyTextParser:
         Returns:
             Distance in kilometers or None if not found
         """
-        distance_match = re.search(r"(\d+[.,]?\d*)\s*(m|km)", element_text)
+        # Allow thousand separators (spaces) in distance numbers (e.g. "2 433,9 km")
+        distance_match = re.search(r"([\d\s]+[.,]?\d*)\s*(m|km)", element_text)
         if distance_match:
-            distance_val = float(distance_match.group(1).replace(",", "."))
+            raw = distance_match.group(1).replace(" ", "").replace("\u00a0", "")
+            distance_val = float(raw.replace(",", "."))
             unit = distance_match.group(2)
             if unit == "m":
                 distance_val = distance_val / 1000
@@ -414,7 +393,7 @@ class PharmacyTextParser:
         Returns:
             True if line looks like a distance (e.g., "34 m", "1.5 km"), False otherwise
         """
-        return bool(re.match(r"^\d+[.,]?\d*\s*(m|km)$", line))
+        return bool(re.match(r"^[\d\s]+[.,]?\d*\s*(m|km)$", line.strip()))
 
     @classmethod
     def _is_address_line(cls, line: str) -> bool:
@@ -428,10 +407,13 @@ class PharmacyTextParser:
         line_lower = line.lower()
 
         # Check for address patterns - lines with commas and city names or street indicators
-        has_comma_and_city = "," in line and any(city in line_lower for city in cls.POLISH_CITIES)
         has_street_indicator = any(indicator in line_lower for indicator in cls.STREET_INDICATORS)
+        # Generic pattern 1: "CityName, StreetName NumberOrWord" (comma + text + digit)
+        has_comma_and_number = bool(re.search(r",\s*\S+.*\d", line))
+        # Generic pattern 2: "CityName, StreetName" (CapitalWord, CapitalWord)
+        has_capitalized_city_street = bool(re.match(r"^[A-ZĄĆĘŁŃÓŚŹŻ][\w\s\-]+,\s+[A-ZĄĆĘŁŃÓŚŹŻ]", line))
 
-        return has_comma_and_city or has_street_indicator
+        return has_street_indicator or has_comma_and_number or has_capitalized_city_street
 
     @classmethod
     def _remove_distance_prefix(cls, line: str) -> str:
@@ -443,7 +425,8 @@ class PharmacyTextParser:
             Line with distance prefix removed (e.g., "34 m APTEKA" -> "APTEKA")
         """
         # Pattern to match distance at the beginning of line (e.g., "34 m APTEKA" -> "APTEKA")
-        distance_pattern = r"^\d+[.,]?\d*\s*(m|km)\s+"
+        # Allows spaces inside the number for Polish-locale thousand separators ("2 433,9 km")
+        distance_pattern = r"^[\d\s]+[.,]?\d*\s*(m|km)\s+"
         return re.sub(distance_pattern, "", line).strip()
 
     @classmethod
@@ -800,7 +783,7 @@ class PharmacyTextParser:
             # Return combined info or None
             return " | ".join(additional_info_parts) if additional_info_parts else None
 
-        except Exception as e:
+        except Exception:
             return None
 
 

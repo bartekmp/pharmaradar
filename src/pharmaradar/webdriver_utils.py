@@ -148,7 +148,7 @@ class WebDriverUtils:
                     pass
 
             time.sleep(1)
-        except Exception as e:
+        except Exception:
             return
 
     @staticmethod
@@ -167,7 +167,7 @@ class WebDriverUtils:
                     stderr=subprocess.DEVNULL,
                 )
                 time.sleep(2)  # Give Xvfb time to start
-        except Exception as e:
+        except Exception:
             return
 
     @staticmethod
@@ -292,7 +292,7 @@ class WebDriverUtils:
         """Safely execute an operation with error handling."""
         try:
             return operation()
-        except Exception as e:
+        except Exception:
             return default_return
 
     @staticmethod
@@ -325,7 +325,7 @@ class WebDriverUtils:
                 # Fallback to JavaScript click
                 driver.execute_script("arguments[0].click();", element)
                 return True
-            except Exception as e:
+            except Exception:
                 return False
 
     @staticmethod
@@ -334,5 +334,5 @@ class WebDriverUtils:
         try:
             WebDriverWait(driver, timeout).until(lambda d: d.execute_script("return document.readyState") == "complete")
             return True
-        except Exception as e:
+        except Exception:
             return False

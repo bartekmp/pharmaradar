@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-03-18)
+
+### Feature
+
+- Rework medicine search workflow and improve fuzzy matching
+  ([`84054a6`](https://github.com/bartekmp/pharmaradar/commit/84054a649b85213954e75cc5ce363c7baa029d30))
+
+
 ## v1.2.6 (2026-03-17)
 
 ### Enhancement

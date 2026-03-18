@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.1 (2026-03-18)
+
+### Bug Fixes
+
+- Invalid link quoting format
+  ([`46a291d`](https://github.com/bartekmp/pharmaradar/commit/46a291d72b8a59a63dc673fd7fc5e57139cc49fa))
+
+
 ## v1.3.0 (2026-03-18)
 
 ### Feature

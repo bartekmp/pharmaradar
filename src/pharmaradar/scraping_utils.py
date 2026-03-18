@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 from urllib.parse import quote_plus
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -67,7 +66,7 @@ class PharmacyExtractor:
 
             return None
 
-        except Exception as e:
+        except Exception:
             return None
 
     @staticmethod
@@ -104,7 +103,7 @@ class PharmacyExtractor:
             # Simple URL that recreates the search - works reliably
             return f"https://ktomalek.pl/?miejscowosc={encoded_location}&szukanyLek={encoded_medicine}"
 
-        except Exception as e:
+        except Exception:
             return "https://ktomalek.pl/"
 
     @staticmethod
@@ -181,10 +180,10 @@ class PharmacyExtractor:
                                     )
                                     time.sleep(0.5)
                             break
-                    except Exception as e:
+                    except Exception:
                         continue
 
-        except Exception as e:
+        except Exception:
             return
 
     @staticmethod
@@ -217,7 +216,7 @@ class PharmacyExtractor:
                     phone_clean = re.sub(r"[^\d]", "", phone_raw)
                     if len(phone_clean) == 9:  # Valid Polish phone number
                         return f"+48{phone_clean}"  # Add country code for clickable links
-        except Exception as e:
+        except Exception:
             pass
         # Fallback: look for "tel:" links in the element
         try:
@@ -232,7 +231,7 @@ class PharmacyExtractor:
                         phone_clean = phone_clean[2:]  # Remove country code
                     if len(phone_clean) == 9:  # Valid Polish phone number
                         return f"+48{phone_clean}"  # Add country code for clickable links
-        except Exception as e:
+        except Exception:
             pass
         # No phone number found
         return None
@@ -242,97 +241,45 @@ class PageNavigator:
     """Handles page navigation and interaction."""
 
     @staticmethod
-    def dismiss_cookie_popup(driver: "webdriver.Remote") -> bool:
+    def dismiss_cookie_popup(driver: "webdriver.Remote", timeout: int = 5) -> bool:
         """
         Dismiss the cookie popup if present.
         Args:
             driver: The Selenium WebDriver instance
+            timeout: Max seconds to wait for the popup to appear (default 5)
         Returns:
             bool: True if successfully dismissed, False otherwise.
         """
-        try:
-            # Try primary cookie button
+        cookie_selectors = [
+            (By.ID, "btnCookiesAll"),
+            (By.CSS_SELECTOR, "button[id*='cookie']"),
+            (By.CSS_SELECTOR, "button[class*='cookie']"),
+            (By.CSS_SELECTOR, "button[class*='accept']"),
+            (By.CSS_SELECTOR, ".accept-cookies"),
+        ]
+
+        def _js_click(elem) -> bool:
+            """Click via JavaScript — works even when an overlay blocks normal click."""
             try:
-                cookie_button = driver.find_element(By.ID, "btnCookiesAll")
-                if cookie_button.is_displayed():
-                    cookie_button.click()
-                    return True
+                driver.execute_script("arguments[0].click();", elem)
+                return True
             except Exception:
-                pass
+                return False
 
-            # Try alternative selectors
-            cookie_selectors = [
-                "button[id*='cookie']",
-                "button[class*='cookie']",
-                "button[class*='accept']",
-                ".accept-cookies",
-            ]
-
-            for selector in cookie_selectors:
+        for by, selector in cookie_selectors:
+            try:
+                elem = WebDriverWait(driver, timeout).until(EC.presence_of_element_located((by, selector)))
                 try:
-                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                    for elem in elements:
-                        if elem.is_displayed() and elem.is_enabled():
-                            elem.click()
-                            return True
+                    elem.click()
                 except Exception:
-                    continue
-            return False
-        except Exception as e:
-            return False
-
-    @staticmethod
-    def search_medicine(driver: "webdriver.Remote", search_query: str, timeout: int = 15) -> bool:
-        """
-        Search for medicine using the main search form.
-        Args:
-            driver: The Selenium WebDriver instance
-            search_query: The medicine name to search for
-            timeout: Maximum wait time for elements (default 15 seconds)
-        Returns:
-            bool: True if search was successful, False otherwise.
-        """
-        try:
-            # Find medicine input
-            try:
-                medicine_input = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.ID, "szukanyLek")))
-            except Exception:
-                # Fallback selectors
-                selectors = ["input[placeholder*='lek']", "input[placeholder*='szukasz']", "input[type='text']"]
-                medicine_input = None
-                for selector in selectors:
-                    try:
-                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                        for elem in elements:
-                            if elem.is_displayed():
-                                medicine_input = elem
-                                break
-                        if medicine_input:
-                            break
-                    except Exception:
+                    # Element may be obscured by another overlay — try JS click
+                    if not _js_click(elem):
                         continue
-
-                if not medicine_input:
-                    return False
-
-            # Enter search query
-            medicine_input.clear()
-            medicine_input.send_keys(search_query)
-
-            # Find and click submit button
-            try:
-                submit_button = WebDriverWait(driver, timeout).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit']"))
-                )
-                submit_button.click()
+                return True
             except Exception:
-                # Fallback: press Enter
-                medicine_input.send_keys(Keys.ENTER)
+                continue
 
-            return True
-
-        except Exception as e:
-            return False
+        return False
 
 
 class PharmacyFilter:
@@ -391,7 +338,7 @@ class PharmacyFilter:
 
             return top_10
 
-        except Exception as e:
+        except Exception:
             # In case of any error, return the original list
             return pharmacies
 

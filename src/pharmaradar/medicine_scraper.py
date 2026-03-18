@@ -9,16 +9,14 @@ import html
 import logging
 import time
 from typing import List
+from urllib.parse import quote_plus
 
-from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 
-from pharmaradar.location_selector import LocationSelector
 from pharmaradar.medicine import Medicine
 from pharmaradar.pharmacy_info import PharmacyInfo
 from pharmaradar.scraping_utils import PageNavigator, PharmacyDuplicateDetector, PharmacyExtractor, PharmacyFilter
-from pharmaradar.text_parsers import MedicineNameMatcher, PharmacyTextParser
+from pharmaradar.text_parsers import LocationTextParser, MedicineNameMatcher, PharmacyTextParser
 from pharmaradar.webdriver_utils import WebDriverManager
 
 
@@ -94,15 +92,6 @@ class MedicineFinder:
         """Backward compatibility wrapper for driver manager."""
         return self.driver_manager.get_driver()
 
-    def _search_medicine_on_homepage(self, driver, medicine_name: str) -> bool:
-        """Backward compatibility wrapper for PageNavigator.search_medicine."""
-        return PageNavigator.search_medicine(driver, medicine_name, self.timeout)
-
-    def _select_location_from_options(self, driver, location: str) -> bool:
-        """Backward compatibility wrapper for LocationSelector."""
-        location_selector = LocationSelector(driver, self.timeout)
-        return location_selector.select_location(location)
-
     def __enter__(self):
         return self
 
@@ -128,25 +117,33 @@ class MedicineFinder:
             self.log.error("WebDriver not available - medicine search cannot proceed")
             return []
 
-        medicine_details = f"{medicine.dosage or ''} {medicine.amount or ''}"
-        if medicine_details.strip():
-            medicine_details = f"{medicine.name} ({medicine_details.strip()})"
-        else:
-            medicine_details = medicine.name
-
         try:
             driver = self.driver_manager.get_driver()
 
-            # Navigate to the search page
-            driver.get(self.BASE_URL)
-            time.sleep(2)
+            # Build search query
+            search_parts = [medicine.name]
+            if medicine.dosage:
+                search_parts.append(medicine.dosage)
+            if medicine.amount:
+                search_parts.append(medicine.amount)
+            search_query = " ".join(search_parts)
+
+            # Navigate with ?szukanyLek= so the site pre-selects the medicine
+            url = f"{self.BASE_URL}/?szukanyLek={quote_plus(search_query)}"
+            self.log.info(f"Loading search URL: {url}")
+            driver.get(url)
+            time.sleep(3)
 
             # Dismiss cookie popup if present
-            if not PageNavigator.dismiss_cookie_popup(driver):
-                self.log.warning("Failed to dismiss cookie popup - continuing with search")
+            PageNavigator.dismiss_cookie_popup(driver, timeout=2)
 
-            # Perform the search
-            pharmacies = self._perform_search(driver, medicine)
+            # Set the session location via the site's JS API
+            if not self._set_location_via_js(driver, medicine.location):
+                self.log.warning("Could not set location via JS")
+                return []
+
+            # Extract pharmacy results
+            pharmacies = self._extract_pharmacy_results(driver, medicine)
 
             return pharmacies
 
@@ -154,164 +151,194 @@ class MedicineFinder:
             self.log.error(f"Error in search for medicine {medicine.name}: {str(e)}")
             return []
 
-    def _perform_search(self, driver, medicine: Medicine) -> List[PharmacyInfo]:
-        """Perform the correct medicine search workflow on ktomalek.pl website."""
+    def _set_location_via_js(self, driver, location: str) -> bool:
+        """Set the session location by geocoding *location* and calling zapiszLokalizacje.
+
+        The ktomalek.pl site requires the location to be set via an AJAX call
+        that stores GPS coordinates in the server session.  The ``miejscowosc``
+        URL parameter is cosmetic and does **not** set the session location.
+
+        Args:
+            location: Free-form location string, e.g.
+                      ``"Warszawa, aleja Stanów Zjednoczonych"``
+
+        Returns True if the location was set successfully.
+        """
+        coords = self._geocode_address(location)
+
+        if not coords:
+            self.log.warning(f"Geocoding failed for: {location}")
+            return False
+
+        lon, lat = coords
+        # Split into city / street for the zapiszLokalizacje API
+        city, street = LocationTextParser.parse_location_parts(location)
+        city = city.title() if city else location
         try:
-            # Build search query including dosage and amount if specified
-            search_parts = [medicine.name]
-            if medicine.dosage:
-                search_parts.append(medicine.dosage)
-            if medicine.amount:
-                search_parts.append(medicine.amount)
-
-            search_query = " ".join(search_parts)
-
-            # Step 1: Set location first (required by website workflow)
-            location_selector = LocationSelector(driver, self.timeout)
-            if not location_selector.select_location(medicine.location):
-                self.log.error("Failed to select location")
-                return []
-
-            # Step 2: Search for medicine after location is set
-            if not PageNavigator.search_medicine(driver, search_query, self.timeout):
-                self.log.error("Failed to search for medicine")
-                return []
-
-            # Step 3: Extract pharmacy results
-            pharmacies = self._extract_pharmacy_results(driver, medicine)
-
-            return pharmacies
-
+            # Use execute_async_script because the AJAX call is asynchronous.
+            # Selenium's execute_script cannot await JS Promises.
+            # The callback is arguments[arguments.length - 1].
+            result = driver.execute_async_script(
+                """
+                var lon = arguments[0];
+                var lat = arguments[1];
+                var city = arguments[2];
+                var street = arguments[3];
+                var done = arguments[arguments.length - 1];
+                try {
+                    var url = lokalizacja.zapiszLokalizacjeUrl + '?timestamp=' + Date.now();
+                    $.ajax({
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            dlugoscGeo: lon,
+                            szerokoscGeo: lat,
+                            miejscowosc: city,
+                            ulica: street
+                        },
+                        url: url,
+                        success: function(msg) { done(msg && msg.wynik === 'OK'); },
+                        error: function() { done(false); }
+                    });
+                } catch(e) { done(false); }
+                """,
+                lon,
+                lat,
+                city,
+                street,
+            )
+            if result:
+                self.log.info(f"Location set to {location} ({lat}, {lon})")
+                time.sleep(3)  # wait for pharmacy results AJAX
+                return True
+            self.log.warning(f"zapiszLokalizacje returned non-OK for {location}")
+            return False
         except Exception as e:
-            self.log.error(f"Error performing search: {e}")
-            return []
+            self.log.warning(f"JS location setting failed: {e}")
+            return False
+
+    @staticmethod
+    def _geocode_address(address: str):
+        """Geocode an address using the Nominatim (OpenStreetMap) API.
+
+        Accepts any free-form address, e.g. ``"Warszawa, aleja Stanów
+        Zjednoczonych 51"`` or just ``"Kraków"``.
+
+        If the exact address fails (common with house numbers), falls back to
+        the address without trailing numbers, then to the city name alone.
+
+        Returns (longitude, latitude) tuple or None.
+        """
+        import re
+        import urllib.request
+        import json
+
+        def _query(q: str):
+            try:
+                url = (
+                    f"https://nominatim.openstreetmap.org/search"
+                    f"?q={quote_plus(q + ', Poland')}"
+                    f"&format=json&limit=1"
+                )
+                req = urllib.request.Request(url, headers={"User-Agent": "PharmaRadar/1.0"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read())
+                if data:
+                    return (float(data[0]["lon"]), float(data[0]["lat"]))
+            except Exception:
+                pass
+            return None
+
+        # 1) Try the exact address
+        result = _query(address)
+        if result:
+            return result
+
+        # 2) Strip trailing house numbers from each part and retry
+        #    before: "Warszawa, Aleja Stanów Zjednoczonych 51"
+        #    after:  "Warszawa, Aleja Stanów Zjednoczonych"
+        stripped = ", ".join(re.sub(r"\s+\d+[a-zA-Z]?$", "", part.strip()) for part in address.split(","))
+        if stripped != address:
+            result = _query(stripped)
+            if result:
+                return result
+
+        # 3) Fall back to city name only (first part before comma)
+        city = address.split(",")[0].strip()
+        if city and city != address and city != stripped:
+            return _query(city)
+
+        return None
 
     def _extract_pharmacy_results(self, driver, medicine: Medicine) -> List[PharmacyInfo]:
         """Extract pharmacy results after medicine search and location selection."""
         try:
-            pharmacies = []
-
-            # Wait for results to load
             time.sleep(3)
 
-            # Look for medicine result containers first
-            medicine_selectors = ["div.results-item", "div[class*='result']", "div[data-group]"]
+            pharmacies = []
 
-            # Find medicine elements
-            medicine_elements = []
-            selected_selector = None
-            for selector in medicine_selectors:
+            # Ktomalek.pl is a single-page app (SPA). When the location is set,
+            # it auto-loads and expands pharmacies for the best-matching medicine variant.
+            # Medicine variants and actual pharmacies both use the `div.results-item` class.
+            elements = driver.find_elements(By.CSS_SELECTOR, "div.results-item, div.apteka-item")
+            visible_elements = [e for e in elements if e.is_displayed() and e.text.strip()]
+
+            for element in visible_elements:
                 try:
-                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                    visible_elements = [e for e in elements if e.is_displayed() and e.text.strip()]
-                    if visible_elements:
-                        medicine_elements = visible_elements
-                        selected_selector = selector
-                        break
+                    # Attempt to extract a pharmacy.
+                    # PharmacyExtractor will happily extract basic fields from a medicine variant too,
+                    # but its availability will be AvailabilityLevel.NONE.
+                    pharmacy = PharmacyExtractor.extract_pharmacy_from_element(element, medicine, driver)
+                    if pharmacy:
+                        PharmacyDuplicateDetector.add_pharmacy_with_duplicate_check(pharmacy, pharmacies)
                 except Exception as e:
-                    self.log.warning(f"Error finding medicine elements with selector {selector}: {e}")
+                    self.log.warning(f"Error extracting pharmacy: {e}")
+                    continue
 
-            if not medicine_elements:
-                self.log.warning("No medicine elements found on the page")
-                return []
+            # The filter will drop the false-positive medicine variants (availability NONE)
+            # and keep the real pharmacies (availability LOW, MEDIUM, HIGH).
+            if pharmacies:
+                valid = PharmacyFilter.filter_and_sort_pharmacies(pharmacies, medicine)
+                if valid:
+                    return valid
 
-            # Process each medicine element to find pharmacy buttons and click them
-            # Use index-based iteration to handle stale element references
-            max_medicines = min(10, len(medicine_elements))  # Process first 10 medicines
-            for i in range(max_medicines):
+            # Fallback: if no pharmacies were found (e.g. no auto-expansion), look for the first
+            # matching medicine variant and click its check availability button.
+            for element in visible_elements:
                 try:
-                    # Always re-find medicine elements to avoid stale references
-                    current_medicine_elements = driver.find_elements(By.CSS_SELECTOR, selected_selector)
-
-                    if i >= len(current_medicine_elements):
-                        break
-
-                    medicine_element = current_medicine_elements[i]
-
-                    # Extract medicine name for context
-                    medicine_name = "Unknown"
-                    medicine_element_text = ""
                     try:
-                        name_link = medicine_element.find_element(By.CSS_SELECTOR, "a.nazwaLeku")
+                        name_link = element.find_element(By.CSS_SELECTOR, "a.nazwaLeku")
                         medicine_name = name_link.text.strip()
-                        medicine_element_text = medicine_element.text.strip()
+                        medicine_element_text = element.text.strip()
                     except Exception:
-                        medicine_element_text = medicine_element.text.strip()
-
-                    # Check if medicine name matches using fuzzy matching
-                    if not MedicineNameMatcher.is_name_match(medicine.name, medicine_name, min_similarity=0.7):
-                        similarity = MedicineNameMatcher.calculate_similarity(medicine.name, medicine_name)
-                        self.log.debug(
-                            f"Medicine name mismatch: '{medicine.name}' vs '{medicine_name}' (similarity: {similarity:.2f})"
-                        )
                         continue
 
-                    # Extract dosage and amount from medicine element
-                    found_dosage, found_amount = PharmacyTextParser.extract_dosage_and_amount(medicine_element_text)
+                    if not MedicineNameMatcher.is_name_match(medicine.name, medicine_name, min_similarity=0.7):
+                        continue
 
-                    # Check if this medicine matches the search criteria for dosage/amount
+                    found_dosage, found_amount = PharmacyTextParser.extract_dosage_and_amount(medicine_element_text)
                     if not PharmacyTextParser.matches_dosage_and_amount(
                         medicine.dosage, medicine.amount, found_dosage, found_amount
                     ):
-                        self.log.debug(
-                            f"Dosage/amount mismatch - skipping: {medicine.dosage} {medicine.amount} vs {found_dosage} {found_amount}"
-                        )
                         continue
 
-                    # Look for pharmacy availability button in this medicine element
-                    pharmacy_button = self._find_pharmacy_button(medicine_element)
-
-                    if not pharmacy_button:
-                        continue
-
-                    # Click the pharmacy button to navigate to pharmacy list
-                    try:
-                        # Scroll into view and click
+                    # Found matching variant. Find button.
+                    btn = self._find_pharmacy_button(element)
+                    if btn:
                         driver.execute_script(
-                            "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", pharmacy_button
+                            "arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", btn
                         )
                         time.sleep(1)
+                        driver.execute_script("arguments[0].click();", btn)
+                        self.log.info("Clicked 'Sprawdź dostępność' on medicine variant.")
+                        time.sleep(5)
 
-                        # Click the button
-                        if pharmacy_button.get_attribute("onclick"):
-                            driver.execute_script("arguments[0].click();", pharmacy_button)
-                        else:
-                            pharmacy_button.click()
-
-                        time.sleep(5)  # Wait for page to load
-
-                        # Extract pharmacy data from the new page
-                        page_pharmacies = self._extract_pharmacies_from_pharmacy_page(driver, medicine)
-
-                        if page_pharmacies:
-                            pharmacies.extend(page_pharmacies)
-
-                        # Go back to the medicine search results
-                        driver.back()
-
-                        # Wait for the page to reload and medicine elements to be available again
-                        try:
-                            WebDriverWait(driver, 10).until(
-                                lambda d: len(d.find_elements(By.CSS_SELECTOR, selected_selector)) > 0
-                            )
-                        except Exception:
-                            self.log.warning("Timeout waiting for medicine search results to reload")
-
-                        time.sleep(2)
-
-                    except Exception as e:
-                        self.log.error(f"Error clicking pharmacy button for {medicine_name}: {e}")
-                        continue
-
-                except StaleElementReferenceException:
-                    self.log.warning(f"Stale element reference for medicine element {i + 1} - skipping")
-                    continue
-                except Exception as e:
-                    self.log.warning(f"Error processing medicine element {i + 1}: {e}")
+                        # Extract the newly loaded pharmacies
+                        return self._extract_pharmacies_from_pharmacy_page(driver, medicine)
+                except Exception:
                     continue
 
-            # Apply smart filtering and sorting
-            return PharmacyFilter.filter_and_sort_pharmacies(pharmacies, medicine)
+            return []
 
         except Exception as e:
             self.log.error(f"Error extracting pharmacy results: {e}")

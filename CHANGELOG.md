@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.2 (2026-03-23)
+
+### Bug Fixes
+
+- Rate limit last_search_at
+  ([`c0bc4c8`](https://github.com/bartekmp/pharmaradar/commit/c0bc4c8704b0f69b6ce87ba5262a3a35e17f2da3))
+
+
 ## v1.3.1 (2026-03-18)
 
 ### Bug Fixes

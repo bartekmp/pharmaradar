@@ -106,9 +106,12 @@ class MedicineWatchdog:
             loop = asyncio.get_event_loop()
             pharmacies = await loop.run_in_executor(None, self.scraper.search_medicine, medicine)
 
-            # Update last search time
-            if medicine.id:
-                self.db_client.update_medicine(medicine.id, last_search_at=datetime.datetime.now())
+            # Update last search time only if it's been more than 60 seconds since last update
+            # This prevents excessive database IO write amplifications (WAL flushes)
+            now = datetime.datetime.now()
+            if medicine.id and (not medicine.last_search_at or (now - medicine.last_search_at).total_seconds() > 60):
+                self.db_client.update_medicine(medicine.id, last_search_at=now)
+                medicine.last_search_at = now
 
             # Filter results based on medicine criteria
             filtered_pharmacies = [pharmacy for pharmacy in pharmacies if medicine.matches_pharmacy(pharmacy)]

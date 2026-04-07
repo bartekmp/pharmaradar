@@ -37,6 +37,7 @@ class MedicineFinder:
         self.timeout = timeout
         self.driver_manager = WebDriverManager(headless, timeout)
         self._webdriver_available = None  # Cache WebDriver availability check
+        self._geocode_cache: dict[str, tuple[float, float] | None] = {}  # Cache geocoding results
         self.log = log
         self.log.info("Initialized PharmaRadar scraper")
 
@@ -161,7 +162,9 @@ class MedicineFinder:
 
         Returns True if the location was set successfully.
         """
-        coords = self._geocode_address(location)
+        if location not in self._geocode_cache:
+            self._geocode_cache[location] = self._geocode_address(location)
+        coords = self._geocode_cache[location]
 
         if not coords:
             self.log.warning(f"Geocoding failed for: {location}")

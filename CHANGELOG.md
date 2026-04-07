@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-04-07)
+
+### Feature
+
+- Cache geocoding results to avoid redundant Nominatim requests
+  ([`c963023`](https://github.com/bartekmp/pharmaradar/commit/c96302366552bf43349a465b3d898c8775cce9e1))
+
+
 ## v1.3.3 (2026-04-07)
 
 ### Bug Fixes

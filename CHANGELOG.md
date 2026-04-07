@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.3 (2026-04-07)
+
+### Bug Fixes
+
+- Reduce disk I/O by disabling Chrome HTTP cache and using RAM-backed profile dir
+  ([`9b73eae`](https://github.com/bartekmp/pharmaradar/commit/9b73eaef85842a2e21b0f4efff13051915822663))
+
+
 ## v1.3.2 (2026-03-23)
 
 ### Bug Fixes

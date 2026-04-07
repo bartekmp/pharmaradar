@@ -42,7 +42,7 @@ class MedicineFinder:
 
     def is_webdriver_available(self) -> bool:
         """
-        Check if WebDriver is available without creating a full driver instance.
+        Check if WebDriver is available by attempting to start the shared driver instance.
 
         Returns:
             True if WebDriver can be initialized, False otherwise
@@ -51,13 +51,10 @@ class MedicineFinder:
             return self._webdriver_available
 
         try:
-            # Quick test to see if we can create a driver
-            with WebDriverManager(headless=True, timeout=5) as test_manager:
-                driver = test_manager.get_driver()
-                driver.get("data:,")  # Simple test
-                self._webdriver_available = True
-                self.log.info("WebDriver availability check: ✅ Available")
-                return True
+            self.driver_manager.get_driver()
+            self._webdriver_available = True
+            self.log.info("WebDriver availability check: ✅ Available")
+            return True
         except Exception as e:
             self._webdriver_available = False
             self.log.warning(f"WebDriver availability check: ❌ Not available - {e}")

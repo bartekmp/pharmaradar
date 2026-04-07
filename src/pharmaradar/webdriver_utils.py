@@ -22,9 +22,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 T = TypeVar("T")
 
-# Fixed Chrome profile directory reused across sessions to prevent profile accumulation.
+# Chrome profile directory. Defaults to /dev/shm (RAM-backed) to avoid disk I/O.
 # Override with PHARMARADAR_CHROME_PROFILE_DIR env var if needed.
-CHROME_USER_DATA_DIR = os.environ.get("PHARMARADAR_CHROME_PROFILE_DIR", "/tmp/pharmaradar-chrome-profile")
+CHROME_USER_DATA_DIR = os.environ.get("PHARMARADAR_CHROME_PROFILE_DIR", "/dev/shm/pharmaradar-chrome-profile")
 
 
 class WebDriverManager:
@@ -122,6 +122,7 @@ class WebDriverUtils:
                 "/tmp/chrome-user-data",
                 "/tmp/chrome-data",
                 "/tmp/chrome-cache",
+                "/tmp/pharmaradar-chrome-profile",  # legacy /tmp location
                 "/dev/shm/chrome-user-data",
                 "/dev/shm/chrome-data",
                 "/dev/shm/chrome-cache",
@@ -248,6 +249,9 @@ class WebDriverUtils:
             "--disable-databases",
             "--disable-shared-workers",
             "--disable-file-system",
+            "--disk-cache-size=1",
+            "--media-cache-size=1",
+            "--aggressive-cache-discard",
         ]
 
         for arg in essential_args:

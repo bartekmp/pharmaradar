@@ -16,10 +16,20 @@ Pharmaradar can be tuned via the following environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PHARMARADAR_CHROME_PROFILE_DIR` | `/dev/shm/pharmaradar-chrome-profile` | Path to the Chrome user-data directory reused across sessions. The default is on `/dev/shm` (RAM-backed tmpfs) to eliminate disk I/O from Chrome's profile writes (GPUCache, Code Cache, Network State). Override with a `/tmp`-based path if your environment has limited RAM. |
+| `PHARMARADAR_CHROME_PROFILE_DIR` | `/dev/shm/pharmaradar-chrome-profile` | Path to the Chrome user-data directory reused across sessions. The default is on `/dev/shm` (RAM-backed tmpfs) to eliminate disk I/O from Chrome's profile writes (GPUCache, Code Cache, Network State). **When running in Docker, ensure `/dev/shm` is at least 512 MB** (see Docker deployment note below). Override with a `/tmp`-based path if your environment has limited RAM. |
 | `CHROMEDRIVER_PATH` | `/usr/bin/chromedriver` | Path to the ChromeDriver binary. |
 | `CHROME_BIN` | auto-detected | Path to the Chrome/Chromium binary. Auto-detected for Alpine Linux (`/usr/bin/chromium-browser`) and other common paths if not set. |
 | `DISPLAY` | `:99` | X display to use for the virtual framebuffer (Xvfb). Relevant in containerised environments only. |
+
+> **Docker `/dev/shm` requirement:** Chrome stores its profile (GPU cache, code cache, network state) on `/dev/shm` by default. Docker containers ship with only 64 MB of `/dev/shm`, which is insufficient. Mount at least 512 MB:
+> ```yaml
+> # docker-compose.yml
+> services:
+>   your-service:
+>     tmpfs:
+>       - /dev/shm:size=512m
+> ```
+> Or with `docker run`: `--shm-size=512m`
 
 ## Installation
 

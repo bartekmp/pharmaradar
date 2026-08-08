@@ -19,7 +19,7 @@ optional-dependencies = { dev = [
     "isort==8.0.1",
     "python-semantic-release==10.5.3",
     "build==1.4.0",
-    "twine==6.2.0",
+    "twine==7.0.0",
 ] }
 
 [build-system]
